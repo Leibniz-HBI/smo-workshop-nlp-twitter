@@ -1,7 +1,16 @@
 options(stringsAsFactors = F)
 
 # load required packages
-library(dplyr)
+if (!require("pacman")) install.packages("pacman")
+
+pacman::p_load(dplyr)
+pacman::p_load(tidytext)
+pacman::p_load(slam)
+pacman::p_load(igraph)
+pacman::p_load(quanteda)
+pacman::p_load(quanteda.textplots)
+pacman::p_load(ggplot2)
+pacman::p_load(ggwordcloud)
 
 # now load the preprocessed data
 load("annotated_text.RData")
@@ -29,7 +38,6 @@ source("src/calculateLogLikelihood.R")
 
 selected_party <- "GRÜNE"
 
-library(tidytext)
 dtm <- annotated_text %>%
   filter(upos %in% c("NOUN", "ADV", "ADJ")) %>%
   mutate(count = 1) %>%
@@ -109,7 +117,6 @@ counts_per_day <- annotated_text %>%
   count(lemma)
 
 # We plot the time series
-require(ggplot2)
 ggplot(counts_per_day, aes(x = created_at, y = n, group = lemma, color = lemma)) +
   geom_line(size = 1) + theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
@@ -167,11 +174,11 @@ topicmodel <- LDA(dtm, k = 10, method = "Gibbs", control = list(alpha = 0.05, it
 topicmodel
 
 # Extract the topic-term-distributions (beta) and bring them into a tidy format
-chapter_topics <- tidy(topicmodel, matrix = "beta")
-chapter_topics
+tweet_topics <- tidy(topicmodel, matrix = "beta")
+tweet_topics
 
 # Now extract the top 10 terms for each topic
-top_terms <- chapter_topics %>%
+top_terms <- tweet_topics %>%
   group_by(topic) %>%
   top_n(10, beta) %>%
   ungroup() %>%
@@ -180,7 +187,6 @@ top_terms <- chapter_topics %>%
 top_terms
 
 # ... and plot them as bar plot.
-require(ggplot2)
 top_terms %>%
   mutate(term = reorder(term, beta)) %>%
   ggplot(aes(term, beta, fill = factor(topic))) +

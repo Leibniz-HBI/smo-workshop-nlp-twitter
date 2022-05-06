@@ -1,14 +1,18 @@
 options(stringsAsFactors = F)
 
+# load required packages
+if (!require("pacman")) install.packages("pacman")
+
+pacman::p_load(dplyr)
+pacman::p_load(udpipe)
+libpacman::p_loadrary(ggwordcloud)
+
 # load data
 zip_connection <- unz("data/btw-candidates_2021_tweets_dboes.zip", "btw-candidates_2021_tweets_dboes.csv")
 btw_tweets <- read.csv(zip_connection, encoding = "UTF-8", colClasses = c("doc_id" = "character", "author_id" = "character"))
 
 # reduced data for RStudio Cloud:
 btw_tweets <- btw_tweets[rep(c(T, F, F), length.out = nrow(btw_tweets)), ]
-
-library(dplyr)
-library(udpipe)
 
 # convert to tibble
 # all data:
@@ -93,7 +97,6 @@ annotated_text %>%
 View(nouns_per_party)
 
 # plot as word cloud
-library(ggwordcloud)
 ggplot(nouns_per_party, aes(label = lemma, size = n, color = Partei)) +
   geom_text_wordcloud_area() +
   scale_size_area(max_size = 20) +
