@@ -4,10 +4,14 @@ options(stringsAsFactors = F)
 zip_connection <- unz("data/btw-candidates_2021_tweets_dboes.zip", "btw-candidates_2021_tweets_dboes.csv")
 btw_tweets <- read.csv(zip_connection, encoding = "UTF-8", colClasses = c("doc_id" = "character", "author_id" = "character"))
 
+# reduced data for RStudio Cloud:
+btw_tweets <- btw_tweets[rep(c(T, F, F), length.out = nrow(btw_tweets)), ]
+
 library(dplyr)
 library(udpipe)
 
 # convert to tibble
+# all data:
 text_df <- tibble(btw_tweets[, c("doc_id", "text")])
 
 # remove # and @
@@ -29,14 +33,22 @@ annotated_text <- udpipe_annotate(
   trace = 1000
 )
 annotated_text <- as.data.frame(annotated_text)
+
+# free some memory
+rm(text_df, udmodel_german)
+gc()
+
+# View the annotated tidy text format
 View(annotated_text)
 
 # join with metadata
 annotated_text <- annotated_text %>%
-  left_join(btw_tweets, by = "doc_id")
+  left_join(btw_tweets[, -which(colnames(btw_tweets) == "text")], by = "doc_id")
+View(annotated_text)
+
 
 # save for later use
-save(annotated_text, file = "annotated_text.RData")
+save(annotated_text, btw_tweets, file = "annotated_text.RData")
 
 # frequency counts
 freq <- annotated_text %>%
