@@ -6,6 +6,7 @@ if (!require("pacman")) install.packages("pacman")
 pacman::p_load(dplyr)
 pacman::p_load(tidytext)
 pacman::p_load(slam)
+pacman::p_load(tm)
 pacman::p_load(igraph)
 pacman::p_load(quanteda)
 pacman::p_load(quanteda.textplots)
@@ -143,9 +144,9 @@ View(matched_tweets)
 
 # Topic modeling
 # ==================================
-
-library(topicmodels)
-library(tidytext)
+pacman::p_load(topicmodels)
+pacman::p_load(tidytext)
+pacman::p_load(reshape2)
 
 # First, we need to create a document-term-matrix as input for the LDA process
 dtm <- annotated_text %>%
@@ -162,7 +163,7 @@ dtm <- dtm[row_sums(dtm) > 0, ]
 dim(dtm)  
   
 # Compute the LDA model
-topicmodel <- LDA(dtm, k = 10, method = "Gibbs", control = list(alpha = 0.05, iter = 500, seed = 1234, verbose = 1))
+topicmodel <- LDA(dtm, k = 20, method = "Gibbs", control = list(alpha = 0.1, iter = 1000, seed = 1234, verbose = 1))
 
 # inspect
 topicmodel
