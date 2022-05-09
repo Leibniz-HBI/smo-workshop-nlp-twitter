@@ -1,5 +1,5 @@
 
-calculateCoocStatistics <- function(coocTerm, binDTM, measure = "DICE") {
+calculateCoocStatistics <- function(coocTerm, binDTM, measure = "DICE", min_count = 1) {
   
   print(paste0("Calculating co-occurrence for ", coocTerm))
   
@@ -45,16 +45,17 @@ calculateCoocStatistics <- function(coocTerm, binDTM, measure = "DICE") {
            sig <- sort(kij, decreasing = TRUE)
          }
         )
-  sig <- sig[-match(coocTerm, names(sig))]
+  exclude_terms <- c(coocTerm, names(which(colSums(binDTM) < min_count)))
+  sig <- sig[!names(sig) %in% exclude_terms]
   return(sig)
 }
 
 
 
 
-get_cooc_significances <- function(coocTerm, binDTM, numberOfCoocs = 15, measure="LOGLIK", sig_threshold = 3.84) {
+get_cooc_significances <- function(coocTerm, binDTM, numberOfCoocs = 15, measure="LOGLIK", sig_threshold = 3.84, min_count = 1) {
   
-  coocs <- calculateCoocStatistics(coocTerm, binDTM, measure=measure)
+  coocs <- calculateCoocStatistics(coocTerm, binDTM, measure=measure, min_count=min_count)
   
   resultGraph <- data.frame(from = character(), to = character(), sig = numeric(0))
   # The structure of the temporary graph object is equal to that of the resultGraph

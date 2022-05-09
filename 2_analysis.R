@@ -15,77 +15,64 @@ pacman::p_load(ggwordcloud)
 # now load the preprocessed data
 load("annotated_text.RData")
 
-# The CSU is just a bavarian CDU ;)
+# Let's just treat the CSU as a very special CDU ;)
 btw_tweets$Partei[btw_tweets$Partei == "CSU"] <- "CDU"
 
-# plan:
-# - roter faden / story: klima begriff / debatte verfolgen
-# - quali-rückbindung: validate^3
-# - story
-#   - which topics are most prominent per party: keyterms per party
-#   - did klima became more important during the campaign: klimaterms over time
-#   - how does climate framing differ: klima coocs per party
-#   - skip topic modeling
-#   - leave time for playing around
-
-
 # Key terms
-# ===========================================
+# =========
 
 # We extract important vocabulary for each party based on log-likelihood statistics
-# load a prepared function
+# For this, we load a prepared function
 source("src/calculateLogLikelihood.R")
 
+# We set a variable to select tweets from a single party
 selected_party <- "GRÜNE"
 
+# We create a document-term matrix containing only nouns, adverbs and adjectives
 dtm <- annotated_text %>%
   filter(upos %in% c("NOUN", "ADV", "ADJ")) %>%
   mutate(count = 1) %>%
   cast_dtm(doc_id, lemma, count)
 
+# We create a selection vector that ensures the same order for the party 
+# metadata as in the just created dtm
 all_parties <- btw_tweets$Partei
 names(all_parties) <- btw_tweets$doc_id
 all_parties <- all_parties[rownames(dtm)]
 
-# First, we count all terms in one party and only keep those occurring > 2
+# Then, we count all terms in one party and only keep those occurring > 2
 word_counts_target <- col_sums(dtm[all_parties == selected_party, ])
 word_counts_target <- word_counts_target[word_counts_target > 2]
 
+# For comparison, we count all terms in all other parties
 word_counts_comparison <- col_sums(dtm[all_parties != selected_party, ])
 word_counts_comparison <- word_counts_comparison[word_counts_comparison > 2]
 
-# ... to use it in the function to determine the ll-significance of Abe's vocabulary
+# We compute the ll-significance of the vocabulary of the selected party
 llSignificance <- calculateLogLikelihood(word_counts_target, word_counts_comparison)
 
-# We extract the top 25 terms most distinct for the SPD
+# We extract the top 25 terms most distinct for the party
 top25 <- sort(llSignificance, decreasing = T)[1:25]
-
 top25_df <- data.frame(
   word = names(top25),
   frq = top25
 )
+# and plot them as a word cloud
 ggwordcloud2(top25_df)
 
-# Check for certain keywords
-View(btw_tweets[btw_tweets$Partei == selected_party & grepl("originalbrecht", btw_tweets$text, fixed = T), ])
+# Read examples for tweets of that party containing certain keywords
+keyterm <- "Scheuer"
+View(btw_tweets[btw_tweets$Partei == selected_party & grepl(keyterm, btw_tweets$text, fixed = T), ])
 
-
-# all parties in one plot
+# Finally, we put word clouds for all parties in one plot
 all_keyterms <- NULL
 for (selected_party in unique(all_parties)) {
-  # First, we count all terms in one party and only keep those occurring > 2
   word_counts_target <- col_sums(dtm[all_parties == selected_party, ])
   word_counts_target <- word_counts_target[word_counts_target > 2]
-  
   word_counts_comparison <- col_sums(dtm[all_parties != selected_party, ])
   word_counts_comparison <- word_counts_comparison[word_counts_comparison > 2]
-  
-  # ... to use it in the function to determine the ll-significance of Abe's vocabulary
   llSignificance <- calculateLogLikelihood(word_counts_target, word_counts_comparison)
-  
-  # We extract the top 25 terms most distinct for the SPD
   top25 <- sort(llSignificance, decreasing = T)[1:25]
-  
   top25_df <- data.frame(
     party = selected_party,
     word = names(top25),
@@ -94,21 +81,20 @@ for (selected_party in unique(all_parties)) {
   all_keyterms <- rbind(all_keyterms, top25_df)
 }
 
+# Here's the code for plotting word clouds as a faceted plot
 ggplot(all_keyterms, aes(label = word, size = ll, color = party)) +
   geom_text_wordcloud_area() +
-  scale_size_area(max_size = 20) +
+  scale_size_area(max_size = 26) +
   facet_wrap(~party) +
   theme_minimal()
 
 
-
-
 # Frequency over time
-# ======================================
+# ===================
 
-# We choose som terms for a time series plot
+# We choose some key terms for a time series plot
 selected_terms <- c("Impfplicht", "Sicherheit", "sozial", "Freiheit", "Klimaschutz", "Mindestlohn")
-# "Digitalisierung", "Mietendeckel", "sozial", ...
+# What about "Digitalisierung", "Mietendeckel", "sozial", ...
 
 # This block counts our selected terms per decade by combining metadata
 counts_per_day <- annotated_text %>%
@@ -120,13 +106,16 @@ counts_per_day <- annotated_text %>%
 ggplot(counts_per_day, aes(x = created_at, y = n, group = lemma, color = lemma)) +
   geom_line(size = 1) + theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
+# Open question: did other parties take over successful keyterms of a individual party?
 
 
 # Cooccurrence term networks
-# ==================================
+# ==========================
 
+# Again, we start with a single party
 selected_party <- "AfD"
 
+# compute a document-term matrix (this time: document-feature matrix of the quanteda package!)
 dtm <- annotated_text %>%
   filter(Partei == selected_party) %>%
   filter(upos %in% c("NOUN", "ADV", "ADJ")) %>%
@@ -136,10 +125,11 @@ dtm <- annotated_text %>%
 # Read in the source code for the co-occurrence calculation
 source("src/calculateCoocStatistics.R")
 
-# term to start the network
+# Choose a term to start the network
 cooc_term <- "Klima"
 
-significant_coocs <- get_cooc_significances(cooc_term, dtm, numberOfCoocs = 8)
+# Use a prepared function to compute the LL significance and get the n cooccurring terms
+significant_coocs <- get_cooc_significances(cooc_term, dtm, numberOfCoocs = 8, min_count = 3)
 significant_coocs[significant_coocs < 3.84] <- 0
 
 matrix2fcm <- getFromNamespace("matrix2fcm", "quanteda")
@@ -150,9 +140,9 @@ quanteda.textplots::textplot_network(plot_matrix, min_freq = 0.0)
 matched_tweets <- btw_tweets[btw_tweets$Partei == selected_party & grepl(cooc_term, btw_tweets$text), ]
 View(matched_tweets)
 
-# Topic models
-# ==================================
 
+# Topic modeling
+# ==================================
 
 library(topicmodels)
 library(tidytext)
@@ -163,14 +153,18 @@ dtm <- annotated_text %>%
   mutate(count = 1) %>%
   cast_dtm(doc_id, lemma, count)
 
+# we remove words occurring less than twice
 dtm <- dtm[, col_sums(dtm) > 2]
+# we remove empty documents
 dtm <- dtm[row_sums(dtm) > 0, ]
 
+# what are the resulting dimensions?
 dim(dtm)  
   
 # Compute the LDA model
 topicmodel <- LDA(dtm, k = 10, method = "Gibbs", control = list(alpha = 0.05, iter = 500, seed = 1234, verbose = 1))
 
+# inspect
 topicmodel
 
 # Extract the topic-term-distributions (beta) and bring them into a tidy format
@@ -184,6 +178,7 @@ top_terms <- tweet_topics %>%
   ungroup() %>%
   arrange(topic, -beta)
 
+# look at the top terms
 top_terms
 
 # ... and plot them as bar plot.
